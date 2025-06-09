@@ -17,15 +17,13 @@ def compute_per_instance_weights(Y):
     max_class_count = max(class_counter.values())
     return Y.map(lambda class_label: max_class_count / class_counter[class_label])
 
-def train_and_evaluate_kfold(
-    X, Y, categorical_columns, model_name, n_splits=10, model_save_dir="models"):
+def train_and_evaluate_kfold(X, Y, categorical_columns, model_name, n_splits=10, model_save_dir="../models", encoding_method='label'):
+
     os.makedirs(model_save_dir, exist_ok=True)
-    num_classes = len(np.unique(Y))
     stratified_kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
     fold_accuracies = []
-    all_fold_validation_probabilities = np.zeros((X.shape[0], num_classes))
-    best_accuracy = -1
-    best_model_path = None
+    best_map3 = -1
+    best_model_save_path = os.path.join(model_save_dir, f"{model_name}_{encoding_method}.pkl")
 
     for fold_index, (train_indices, valid_indices) in enumerate(stratified_kfold.split(X, Y), 1):
         print(f"\n================ Fold {fold_index} ================")
@@ -114,15 +112,9 @@ def train_and_evaluate_kfold(
         else:
             raise ValueError(f"Unsupported model: {model_name}")
 
-        # Save model for this fold
-        model_path = os.path.join(model_save_dir, f"{model_name}_fold{fold_index}.pkl")
-        joblib.dump(model, model_path)
-        print(f"Model for fold {fold_index} saved to {model_path}")
-
         Y_valid_pred = model.predict(X_valid)
         Y_valid_proba = model.predict_proba(X_valid)
 
-        all_fold_validation_probabilities[valid_indices] = Y_valid_proba
         accuracy = accuracy_score(Y_valid, Y_valid_pred)
         fold_accuracies.append(accuracy)
         print(f"✅ Fold {fold_index} Accuracy: {accuracy:.4f}")
@@ -132,16 +124,13 @@ def train_and_evaluate_kfold(
         map3_score_fold = mapk(Y_valid.values, top3_predictions_fold, k=3)
         print(f"📊 Fold {fold_index} MAP@3: {map3_score_fold:.5f}")
 
-        # Save best model
-        if accuracy > best_accuracy:
-            best_accuracy = accuracy
-            best_model_path = model_path
+        # Save best model by MAP@3
+        if map3_score_fold > best_map3:
+            best_map3 = map3_score_fold
+            joblib.dump(model, best_model_save_path)
+            print(f"🌟 Best model updated and saved to {best_model_save_path}")
 
-    # Save best model as best_{model_name}.pkl
-    if best_model_path:
-        best_model_save_path = os.path.join(model_save_dir, f"best_{model_name}.pkl")
-        joblib.copy(best_model_path, best_model_save_path)
-        print(f"\n🏆 Best model saved to {best_model_save_path} (Fold with highest accuracy: {best_accuracy:.4f})")
+    print(f"\n🏆 Best model saved to {best_model_save_path} (Fold with highest accuracy: {best_map3:.4f})")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -166,7 +155,7 @@ def main():
     if model_name in ['xgboost', 'lightgbm', 'catboost']:
         train_and_evaluate_kfold(
             X, Y, categorical_columns, model_name,
-            n_splits=args.n_splits, model_save_dir=args.model_save_dir
+            n_splits=args.n_splits, model_save_dir=args.model_save_dir, encoding_method=encoding_method
         )
     else:
         print("Other models not implemented in this snippet.")
