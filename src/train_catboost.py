@@ -3,7 +3,7 @@ import numpy as np
 from catboost import CatBoostClassifier, Pool
 from collections import Counter
 from sklearn.metrics import accuracy_score
-from src.utils.evaluate import mapk
+from utils.evaluate import mapk
 
 def train_catboost(X_train, Y_train, X_valid, Y_valid, categorical_columns, model_save_path):
     class_counter = Counter(Y_train)

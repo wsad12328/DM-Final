@@ -2,7 +2,7 @@ import joblib
 import numpy as np
 from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score
-from src.utils.evaluate import mapk
+from utils.evaluate import mapk
 
 def train_xgboost(X_train, Y_train, X_valid, Y_valid, sample_weights, model_save_path):
     model = XGBClassifier(
