@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 import argparse
-from utils.utils import load_preprocessed_data, load_model, load_label_encoders
+from utils.io_utils import load_preprocessed_data, load_model, load_label_encoders
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
