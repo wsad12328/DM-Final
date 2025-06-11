@@ -1,5 +1,5 @@
 *.joblib
 catboost_info
-.pyc
+*.pyc
 preprocess*
 *.pkl
