@@ -15,18 +15,18 @@ def train_xgboost(X_train, Y_train, X_valid, Y_valid, sample_weights, model_save
         max_delta_step=4,
         reg_alpha=2.7,
         reg_lambda=1.4,
+        early_stopping_rounds=100,
         objective='multi:softprob',
         random_state=13,
         enable_categorical=True,
-        tree_method='hist',
+        tree_method='hist', 
         n_jobs=20,
-        early_stopping_rounds=150,
     )
     model.fit(
         X_train,
         Y_train,
-        sample_weight=sample_weights,
         eval_set=[(X_valid, Y_valid)],
+        sample_weight=sample_weights,
         verbose=200,
     )
     Y_valid_pred = model.predict(X_valid)
