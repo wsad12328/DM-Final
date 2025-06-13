@@ -4,3 +4,4 @@ catboost_info
 preprocess*
 *.pkl
 __pycache__
+*.pth

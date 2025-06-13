@@ -8,7 +8,7 @@ class MLP(nn.Module):
         cat_cardinalities,
         output_dim=7,
         dropout=0.2,
-        embed_dim=2
+        embed_dim=8
     ):
         super().__init__()
         # 類別型欄位 Embedding
@@ -21,6 +21,10 @@ class MLP(nn.Module):
         self.fc1 = nn.Linear(input_dim, 256)
         nn.init.xavier_uniform_(self.fc1.weight)
         self.bn1 = nn.BatchNorm1d(256)
+
+        self.fc2 = nn.Linear(256, 256)
+        nn.init.xavier_uniform_(self.fc2.weight)
+        self.bn2 = nn.BatchNorm1d(256)
 
         self.fc_out = nn.Linear(256, output_dim)
         nn.init.xavier_uniform_(self.fc_out.weight)
@@ -38,5 +42,7 @@ class MLP(nn.Module):
             x = num_x
         # print(x.shape)  # Debugging line to check input shape
         out1 = self.drop(self.relu(self.bn1(self.fc1(x))))
+        out2 = self.drop(self.relu(self.bn2(self.fc2(out1))))
+        out2 = out2 + out1
         prob = self.fc_out(out1)
         return prob
