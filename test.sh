@@ -9,5 +9,5 @@
 # python src/test.py --encoding onehot --model random_forest
 
 ############################## deep learning base ##############################
-python src/test.py --model mlp --encoding label
+# python src/test.py --model mlp --encoding label
 python src/test.py --model mlp --encoding onehot

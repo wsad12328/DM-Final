@@ -13,6 +13,7 @@ import os
 from utils.feature_utils import get_cat_cardinalities
 import pickle
 from sklearn.model_selection import StratifiedKFold
+import time
 
 num_cols = None
 cat_cols = None
@@ -132,8 +133,10 @@ def main():
 
     skf = StratifiedKFold(n_splits=args.n_splits, shuffle=True, random_state=42)
     fold_mapks = []
+    fold_times = []  # 記錄每個 fold 的時間
 
     for fold, (train_idx, val_idx) in enumerate(skf.split(num_x, y)):
+        fold_start_time = time.time()
         print(f"\n=== Fold {fold+1}/{args.n_splits} ===")
         num_x_train, num_x_val = num_x[train_idx], num_x[val_idx]
         cat_x_train, cat_x_val = cat_x[train_idx], cat_x[val_idx]
@@ -169,13 +172,44 @@ def main():
             model, train_loader, val_loader, criterion, optimizer, scheduler, device, args.epochs, args.k
         )
         fold_mapks.append(best_mapk)
+
+        # 計算並記錄每個 fold 的時間
+        fold_end_time = time.time()
+        fold_duration = fold_end_time - fold_start_time
+        fold_times.append(fold_duration)
+
         save_dir = os.path.join(os.path.dirname(__file__), '../models')
         os.makedirs(save_dir, exist_ok=True)
         torch.save(best_state, f"{save_dir}/{args.model}_{args.encoding}_fold{fold+1}.pth")
+        print(f"Fold {fold+1} completed in: {fold_duration/60:.2f} minutes")
         print(f"Fold {fold+1} best MAP@{args.k}: {best_mapk:.4f}")
+
+    
+    # 計算平均時間（總時間除以 5）
+    average_time = sum(fold_times) / args.n_splits
 
     print(f"\nAll folds MAP@{args.k}: {fold_mapks}")
     print(f"Average MAP@{args.k}: {np.mean(fold_mapks):.4f}")
+    
+    # 保存時間資訊到 txt 文件
+    results_dir = os.path.join(os.path.dirname(__file__), '../result')
+    os.makedirs(results_dir, exist_ok=True)
+   
+    time_file = os.path.join(results_dir, f'training_time_{args.model}_{args.encoding}.txt')
+    
+    with open(time_file, 'w', encoding='utf-8') as f:
+        f.write(f"Model: {args.model}\n")
+        f.write(f"Encoding: {args.encoding}\n")
+        f.write(f"Epochs: {args.epochs}\n")
+        f.write(f"Number of Folds: {args.n_splits}\n")
+        f.write(f"\nTraining Time Summary:\n")
+        f.write(f"Average Time Per Fold: {average_time:.2f} seconds ({average_time/60:.2f} minutes)\n")
+        f.write(f"Total Training Time: {sum(fold_times):.2f} seconds ({sum(fold_times)/60:.2f} minutes)\n")
+        f.write(f"\nIndividual Fold Times:\n")
+        for i, fold_time in enumerate(fold_times):
+            f.write(f"Fold {i+1}: {fold_time:.2f} seconds ({fold_time/60:.2f} minutes)\n")
+    
+    print(f"Average time per fold saved to: {time_file}")
 
 if __name__ == '__main__':
     main()
