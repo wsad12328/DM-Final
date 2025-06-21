@@ -6,3 +6,4 @@ preprocess*
 __pycache__
 *.pth
 *.pt
+submission*
