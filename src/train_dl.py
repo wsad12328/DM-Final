@@ -10,14 +10,12 @@ from models.MLP import MLP
 from utils.evaluate import mapk
 from tqdm import tqdm
 import os
-from utils.feature_utils import get_cat_cols, get_cat_cardinalities
+from utils.feature_utils import get_cat_cardinalities
 import pickle
 from sklearn.model_selection import StratifiedKFold
 
-cols = pickle.load(open(os.path.join(os.path.dirname(__file__), '../data/cols_info.pkl'), 'rb'))
-num_cols = cols['num_cols']
-cat_cols = cols['cat_cols']
-# print(cat_cols)
+num_cols = None
+cat_cols = None
 
 def get_model(model_name, numeric_num_features, output_dim, cat_cardinalities):
     if model_name == 'mlp':
@@ -32,11 +30,10 @@ def load_csv_data(train_path, val_size=0.2, random_state=42):
     if 'id' in df.columns:
         df = df.drop(columns=['id'])
 
-    # cat_cols = get_cat_cols(df)
-    # print(cat_cols)
     num_x = df[num_cols].values.astype(np.float32)
     cat_x = df[cat_cols].values.astype(np.int32)
-    y = df['Fertilizer Name'].values.astype(np.int64)
+    y = df['Fertilizer Name'].values.astype(np.int32)
+
     num_x_train, num_x_val, cat_x_train, cat_x_val, y_train, y_val = train_test_split(
         num_x, cat_x, y, test_size=val_size, random_state=random_state, stratify=y
     )
@@ -106,6 +103,9 @@ def main():
     parser.add_argument('--k', type=int, default=3, help='k for MAP@K')
     parser.add_argument('--n_splits', type=int, default=5, help='Number of folds for KFold')
     args = parser.parse_args()
+    cols = pickle.load(open(os.path.join(os.path.dirname(__file__), f'../data/cols_info_train_{args.encoding}.pkl'), 'rb'))
+    num_cols = cols['num_cols']
+    cat_cols = cols['cat_cols']
 
     if args.encoding == 'label':
         train_csv = '../data/preprocessed_train_label.csv'
@@ -154,7 +154,7 @@ def main():
 
         model = get_model(args.model, numeric_num_features, output_dim, cat_cardinalities).to(device)
         criterion = nn.CrossEntropyLoss()
-        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+        optimizer = optim.AdamW(model.parameters(), lr=args.lr)
         total_steps = args.epochs * len(train_loader)
         scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer,

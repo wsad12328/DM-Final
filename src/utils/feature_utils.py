@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
+import pickle
 
 num_cols = ['Temperature_Humidity', 'Temperature_Moisture', 'Humidity_to_Moisture',
         'NPK_Total', 'N_to_Moisture', 'P_K_Interaction', 'NP_ratio', 'Temperature', 'Humidity', 'Moisture', 'Nitrogen', 'Potassium', 'Phosphorous']
@@ -11,6 +12,26 @@ def get_cat_cols(df):
 
 def get_cat_cardinalities(cat_x):
     return [int(np.max(cat_x[:, i]) + 1) for i in range(cat_x.shape[1])]
+
+def restore_data_types(df, cols_info_path):
+    """恢復從 CSV 讀取後丟失的數據類型"""
+    try:
+        with open(cols_info_path, 'rb') as f:
+            cols_info = pickle.load(f)
+        
+        cat_cols = cols_info.get('cat_cols', [])
+        print(f"Restoring category types for columns: {cat_cols}")
+        
+        # 恢復 category 類型
+        for col in cat_cols:
+            if col in df.columns:
+                df[col] = df[col].astype("category")
+                
+        return df
+    except FileNotFoundError:
+        print(f"Warning: cols_info file not found at {cols_info_path}")
+        print("Proceeding without data type restoration")
+        return df
 
 
 def onehot_encode(df, cat_cols, num_cols):

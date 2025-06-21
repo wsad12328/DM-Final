@@ -5,3 +5,4 @@ preprocess*
 *.pkl
 __pycache__
 *.pth
+*.pt

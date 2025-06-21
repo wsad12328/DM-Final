@@ -40,9 +40,9 @@ class MLP(nn.Module):
             x = torch.cat([num_x, emb], dim=1)
         else:
             x = num_x
-        # print(x.shape)  # Debugging line to check input shape
+
         out1 = self.drop(self.relu(self.bn1(self.fc1(x))))
         out2 = self.drop(self.relu(self.bn2(self.fc2(out1))))
         out2 = out2 + out1
-        prob = self.fc_out(out1)
+        prob = self.fc_out(out2)
         return prob

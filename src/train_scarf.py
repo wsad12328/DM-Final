@@ -7,37 +7,43 @@ import pandas as pd
 import numpy as np
 import os
 from models.SCARF import Encoder, ProjectionHead
-from src.dataset.SCARFDataset import SCARFDataset
+from dataset.SCARFDataset import SCARFDataset
 from utils.feature_utils import get_cat_cols, get_cat_cardinalities
-import pickle
 from tqdm import tqdm
 from torch.utils.data import random_split
 from dataset.Augmentor import DataAugmentor
 from utils.feature_utils import onehot_encode
 from utils.feature_utils import OneHotEncoderWrapper
 
-def nt_xent_loss(z1, z2, temperature=1.0):
+def nt_xent_loss(z1, z2, temperature=0.1):
+    batch_size = z1.size(0)
+    device = z1.device
+    
+    # 計算相似度矩陣
     representations = torch.cat([z1, z2], dim=0)
-    similarity_matrix = torch.matmul(representations, representations.T)
-    labels = torch.arange(z1.size(0)).to(z1.device)
-    labels = torch.cat([labels, labels], dim=0)
-    mask = torch.eye(labels.shape[0], dtype=torch.bool).to(z1.device)
-    similarity_matrix = similarity_matrix / temperature
+    similarity_matrix = torch.mm(representations, representations.t()) / temperature
+    
+    # 創建標籤 - 正樣本對
+    labels = torch.arange(batch_size).to(device)
+    labels = torch.cat([labels + batch_size, labels], dim=0)
+    
+    # 創建 mask 來移除自己與自己的相似度
+    mask = torch.eye(2 * batch_size, dtype=torch.bool).to(device)
     similarity_matrix = similarity_matrix.masked_fill(mask, -1e9)
-    positives = torch.cat([torch.diag(similarity_matrix, z1.size(0)), torch.diag(similarity_matrix, -z1.size(0))])
-    loss = -positives + torch.logsumexp(similarity_matrix, dim=1)
-    print(loss.mean())
-    return loss.mean()
+    
+    # 計算損失
+    loss = nn.CrossEntropyLoss()(similarity_matrix, labels)
+    return loss
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=40)
+    parser.add_argument('--epochs', type=int, default=1)
     parser.add_argument('--batch_size', type=int, default=256)
-    parser.add_argument('--lr', type=float, default=3e-3)
+    parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--encoding', type=str, default='onehot', choices=['label', 'onehot'])
     parser.add_argument('--val_size', type=float, default=0.2)
     parser.add_argument('--k', type=int, default=3, help='k for MAP@K')
-    parser.add_argument('--corruption_rate', type=float, default=0.6)
+    parser.add_argument('--corruption_rate', type=float, default=0.5)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--type', choices=['train', 'test'], required=True, help="Specify train or test file")
     args = parser.parse_args()
@@ -74,8 +80,8 @@ def main():
     val_size = int(len(dataset) * args.val_size)
     train_size = len(dataset) - val_size
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size], generator=torch.Generator().manual_seed(args.seed))
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=8)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=8)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=20)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=20)
 
     print(f"Total dataset size: {len(dataset)}")
     print(f"Train dataset size: {len(train_dataset)}")
@@ -84,7 +90,7 @@ def main():
     input_dim = train_loader.dataset[0][0].shape[0]
 
     encoder = Encoder(input_dim=input_dim, hidden_dim=256, dropout=0.2).to(device)
-    proj_head = ProjectionHead(input_dim=256, projection_dim=256).to(device)
+    proj_head = ProjectionHead(input_dim=256, projection_dim=8).to(device)
     optimizer = optim.Adam(list(encoder.parameters()) + list(proj_head.parameters()), lr=args.lr)
 
     for epoch in range(args.epochs):
@@ -102,6 +108,9 @@ def main():
             loss = nt_xent_loss(z1, z2)
             optimizer.zero_grad()
             loss.backward()
+            # for name, param in encoder.named_parameters():
+            #     if param.grad is not None:
+            #         print(f'{name}: grad_norm = {param.grad.norm().item():.6f}')
             optimizer.step()
             total_loss += loss.item() * orig.size(0)
         avg_loss = total_loss / len(train_dataset)

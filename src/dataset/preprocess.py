@@ -4,9 +4,16 @@ import argparse
 import pickle
 from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder
 
-def preprocess_data(df, encoding_method='label', is_train=True):
-    cat_cols = ["Soil Type","Crop Type","Temperature","Humidity","Moisture","Nitrogen","Potassium","Phosphorous"]
-    num_cols = []
+TYPE = None
+ENCODE = None
+
+def preprocess_data(df, encoding_method='label', is_train=True):    
+    numeric_cols = [col for col in df.select_dtypes(include=['int64', 'float64']).columns if col != 'id']
+
+    for col in numeric_cols:
+        df[f'{col}_Binned'] = df[col].astype(str).astype('category')
+
+    cat_cols = [col for col in df.select_dtypes(include=['object', 'category']).columns if col != "Fertilizer Name"]
     label_encoders = {}
 
     # 類別欄位編碼
@@ -20,22 +27,18 @@ def preprocess_data(df, encoding_method='label', is_train=True):
     else:
         raise ValueError("encoding_method must be 'label' or 'onehot'")
 
-    # 數值欄位標準化
-    if len(num_cols) > 0:
-        scaler = StandardScaler()
-        df[num_cols] = scaler.fit_transform(df[num_cols])
-
     # 目標欄位編碼
     if is_train and 'Fertilizer Name' in df.columns:
         target_le = LabelEncoder()
         df['Fertilizer Name'] = target_le.fit_transform(df['Fertilizer Name'])
         label_encoders['Fertilizer Name'] = target_le
 
-    # save cat_cols and num_cols for future reference
-    
     # get new categorical columns if one-hot encoding is used
     if encoding_method == 'onehot':
         cat_cols = [col for col in df.columns if col.startswith(tuple(cat_cols))]
+
+    for col in cat_cols:
+        df[col] = df[col].astype("category")
 
     print(f"Categorical columns after preprocessing: {cat_cols}")
     print(len(cat_cols), "categorical columns found.")
@@ -43,11 +46,10 @@ def preprocess_data(df, encoding_method='label', is_train=True):
     # save the categorical and numerical columns
     cols_info = {
         'cat_cols': cat_cols,
-        'num_cols': num_cols
+        'num_cols': numeric_cols
     }
-    
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    cols_info_path = os.path.join(base_dir, '../../data/cols_info.pkl')
+    cols_info_path = os.path.join(base_dir, f'../../data/cols_info_{TYPE}_{ENCODE}.pkl')
     with open(cols_info_path, 'wb') as f:
         pickle.dump(cols_info, f)
     print(f"Column information saved to: {cols_info_path}")
@@ -63,6 +65,9 @@ if __name__ == '__main__':
     base_dir = os.path.dirname(os.path.abspath(__file__))
     file_name = 'train.csv' if args.type == 'train' else 'test.csv'
     file_path = os.path.join(base_dir, '../../data', file_name)
+
+    TYPE = args.type
+    ENCODE = args.encoding
 
     df = pd.read_csv(file_path)
     print("Before preprocessing:")

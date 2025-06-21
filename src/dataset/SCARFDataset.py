@@ -13,6 +13,7 @@ class SCARFDataset(Dataset):
         self.cat_cols = cat_cols
         self.num_cols = num_cols
         self.label_col = label_col
+        self.use_augmentation = augmentor is not None
 
         if 'id' in self.df_orig.columns:
             self.df_orig = self.df_orig.drop(columns=['id'])
@@ -28,17 +29,17 @@ class SCARFDataset(Dataset):
 
     def __getitem__(self, idx):
         orig_row = self.df_orig.iloc[[idx]].reset_index(drop=True)
-        # Drop 'id' and label_col before augmentation if they exist
-        drop_cols = [col for col in ['id', self.label_col] if col in orig_row.columns]
-        aug_input = orig_row.drop(columns=drop_cols)
-        aug_row = self.augmentor(aug_input)
-
-        # Add label_col back to aug_row if needed
-        if self.label_col in orig_row.columns:
-            aug_row[self.label_col] = orig_row[self.label_col].values[0]
+        
+        if self.use_augmentation:
+            # 傳入整個 DataFrame 和指定的 index 給 augmentor
+            aug_row = self.augmentor(self.df_orig, idx)
+            aug_features = self.encoder.transform(aug_row)
+            aug_features = torch.tensor(aug_features, dtype=torch.float32).squeeze(0)
+        else:
+            # 如果不使用 augmentation，返回原始特徵
+            aug_features = None
 
         orig_features = self.encoder.transform(orig_row)
-        aug_features = self.encoder.transform(aug_row)
 
         if self.label_col in orig_row.columns:
             label = orig_row[self.label_col].values[0]
@@ -47,7 +48,9 @@ class SCARFDataset(Dataset):
             label = -1
 
         orig_features = torch.tensor(orig_features, dtype=torch.float32).squeeze(0)
-        aug_features = torch.tensor(aug_features, dtype=torch.float32).squeeze(0)
         label = torch.tensor(label, dtype=torch.long)
         
-        return orig_features, aug_features, label
+        if self.use_augmentation:
+            return orig_features, aug_features, label
+        else:
+            return orig_features, orig_features, label  # 返回兩次原始特徵以保持一致性
