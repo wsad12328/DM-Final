@@ -7,9 +7,9 @@ import torch
 def get_base_dir():
     return os.path.dirname(os.path.abspath(__file__))
 
-def load_preprocessed_data(data_type='train', encoding_method='label'):
+def load_preprocessed_data(data_type='train', encoding_method='label', feature_eng='none'):
     base_dir = get_base_dir()
-    file_path = os.path.join(base_dir, '../../data', f'preprocessed_{data_type}_{encoding_method}.csv')
+    file_path = os.path.join(base_dir, '../../data', f'preprocessed_{data_type}_{encoding_method}_{feature_eng}.csv')
     return pd.read_csv(file_path)
 
 def load_model(model_name='xgboost', encoding_method='label'):

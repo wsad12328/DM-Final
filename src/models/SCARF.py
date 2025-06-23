@@ -53,6 +53,7 @@ class ProjectionHead(nn.Module):  # g
         self.fc1 = nn.Linear(input_dim, projection_dim)
         self.fc2 = nn.Linear(projection_dim, projection_dim)
         self.relu = nn.ReLU()
+
         
         # 添加權重初始化
         nn.init.xavier_uniform_(self.fc1.weight)
@@ -69,13 +70,13 @@ class ClassifierHead(nn.Module):  # h
         super().__init__()
         self.fc1 = nn.Linear(input_dim, input_dim)
         self.fc2 = nn.Linear(input_dim, num_classes)
-        self.relu = nn.ReLU()
+        self.drop = nn.Dropout(0.5)
+        self.relu = nn.GELU()
         
         # 添加權重初始化
         nn.init.xavier_uniform_(self.fc1.weight)
-        nn.init.zeros_(self.fc1.bias)
         nn.init.xavier_uniform_(self.fc2.weight)
-        nn.init.zeros_(self.fc2.bias)
+
 
     def forward(self, x):
-        return self.fc2(self.relu(self.fc1(x)))
+        return self.fc2(self.drop(self.relu(self.fc1(x))))

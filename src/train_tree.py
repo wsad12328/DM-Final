@@ -12,7 +12,7 @@ from utils.feature_utils import restore_data_types
 from train_randomforest import train_random_forest
 import pickle
 
-def train_and_evaluate_kfold(X, Y, categorical_columns, model_name, n_splits=10, model_save_dir="../models", encoding_method='label'):
+def train_and_evaluate_kfold(X, Y, categorical_columns, model_name, n_splits=10, model_save_dir="../models", encoding_method='label', feature_eng='none'):
     os.makedirs(model_save_dir, exist_ok=True)
     stratified_kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
     
@@ -25,7 +25,7 @@ def train_and_evaluate_kfold(X, Y, categorical_columns, model_name, n_splits=10,
         X_train, X_valid = X.iloc[train_indices], X.iloc[valid_indices]
         Y_train, Y_valid = Y.iloc[train_indices], Y.iloc[valid_indices]
         # 為每個 fold 創建獨立的模型保存路徑
-        fold_model_save_path = os.path.join(model_save_dir, f"{model_name}_{encoding_method}_fold_{fold_index+1}.pkl")
+        fold_model_save_path = os.path.join(model_save_dir, f"{model_name}_{encoding_method}_fold_{fold_index+1}_{feature_eng}.pkl")
 
         if model_name == 'xgboost':
             map3_score_fold = train_xgboost(
@@ -73,15 +73,17 @@ def main():
     parser.add_argument('--kfold', action='store_true', help="Use KFold cross-validation", default=False)
     parser.add_argument('--n_splits', type=int, default=5, help="Number of KFold splits")
     parser.add_argument('--model_save_dir', type=str, default='models', help="Directory to save trained models")
+    parser.add_argument('--feature_eng', choices=['none', 'npk_features', 'all'], default='none', 
+                       help="Feature engineering type: none, npk_features (NPK ratios+sum), all (comprehensive agricultural features)")
     args = parser.parse_args()
 
     encoding_method = args.encoding
     model_name = args.model
 
-    df = load_preprocessed_data(data_type='train', encoding_method=encoding_method)
+    df = load_preprocessed_data(data_type='train', encoding_method=encoding_method, feature_eng=args.feature_eng)
 
     # 修復數據類型（這是關鍵修復）
-    cols_info_path = os.path.join(os.path.dirname(__file__), f'../data/cols_info_train_{args.encoding}.pkl')
+    cols_info_path = os.path.join(os.path.dirname(__file__), f'../data/cols_info_train_{args.encoding}_{args.feature_eng}.pkl')
     df = restore_data_types(df, cols_info_path)
 
     X = df.drop(columns=['id', 'Fertilizer Name'])
@@ -98,7 +100,7 @@ def main():
     if model_name in ['xgboost', 'lightgbm', 'catboost', 'random_forest']:
         fold_times, fold_scores = train_and_evaluate_kfold(
             X, Y, categorical_columns, model_name,
-            n_splits=args.n_splits, model_save_dir=args.model_save_dir, encoding_method=encoding_method
+            n_splits=args.n_splits, model_save_dir=args.model_save_dir, encoding_method=encoding_method, feature_eng=args.feature_eng
         )
         
         # 計算總時間和平均時間

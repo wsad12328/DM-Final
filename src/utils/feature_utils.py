@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 import pickle
 
 num_cols = ['Temperature_Humidity', 'Temperature_Moisture', 'Humidity_to_Moisture',
@@ -64,5 +64,39 @@ class OneHotEncoderWrapper:
             return cat_encoded
 
     def fit_transform(self, df):
+        self.fit(df)
+        return self.transform(df)
+    
+class LabelEncoderWrapper:
+    def __init__(self, cat_cols, num_cols):
+        self.cat_cols = cat_cols
+        self.num_cols = num_cols
+        self.label_encoders = {}
+        
+    def fit(self, df):
+        """Fit label encoders on categorical columns"""
+        for col in self.cat_cols:
+            if col in df.columns:
+                le = LabelEncoder()
+                le.fit(df[col].astype(str))
+                self.label_encoders[col] = le
+    
+    def transform(self, df):
+        """Transform dataframe using fitted label encoders"""
+        df_transformed = df.copy()
+        
+        # Apply label encoding to categorical columns
+        for col in self.cat_cols:
+            if col in df_transformed.columns and col in self.label_encoders:
+                df_transformed[col] = self.label_encoders[col].transform(df_transformed[col].astype(str))
+        
+        # Select only the columns we want to use
+        feature_cols = self.cat_cols + self.num_cols
+        available_cols = [col for col in feature_cols if col in df_transformed.columns]
+        
+        return df_transformed[available_cols].values.astype(np.float32)
+    
+    def fit_transform(self, df):
+        """Fit and transform in one step"""
         self.fit(df)
         return self.transform(df)
